@@ -1,0 +1,47 @@
+---
+title: "ECON 474 Final Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("xts")
+#install.packages("zoo")
+library(dplyr)
+library(ggplot2)
+library(xts)
+library(zoo)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+funding_rounds_cal = read.csv("/cloud/project/funding-rounds-california.csv")
+funding_rounds_cal_2 = read.csv("/cloud/project/funding-rounds-california-2.csv")
+funding_rounds_cal_3 = read.csv("/cloud/project/funding-rounds-california-3.csv")
+```
+
+```{r}
+funding_rounds_cal_comb = unique(rbind(funding_rounds_cal, funding_rounds_cal_2, funding_rounds_cal_3))
+```
+
+```{r}
+x_zoo = as.xts(funding_rounds_cal_comb[,"Money.Raised"], order.by=as.Date(funding_rounds_cal_comb$Announced.Date))
+# covert to xts form to add time stamp
+
+weekly_funding_agg = apply.weekly(x_zoo,sum,na.rm=TRUE)   
+weekly_dealings_agg = apply.weekly(x_zoo,nrow)
+# group by weeks and get the aggregate sum of money & number of dealings
+
+cal_funding_agg = as.data.frame(cbind(weekly_funding_agg, weekly_dealings_agg))
+cal_funding_agg
+# combine dataframe
+```
