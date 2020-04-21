@@ -13,6 +13,10 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages("ggplot2")
 #install.packages("xts")
 #install.packages("zoo")
+#install.packages("tidyverse")
+#install.packages("lubridate")
+library(tidyverse)
+library(lubridate)
 library(dplyr)
 library(ggplot2)
 library(xts)
@@ -24,16 +28,18 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+view(funding_rounds_cal_3)
+```
+
+
+# Datacleaning (California)
+```{r}
 funding_rounds_cal = read.csv("/cloud/project/funding-rounds-california.csv")
 funding_rounds_cal_2 = read.csv("/cloud/project/funding-rounds-california-2.csv")
 funding_rounds_cal_3 = read.csv("/cloud/project/funding-rounds-california-3.csv")
-```
 
-```{r}
 funding_rounds_cal_comb = unique(rbind(funding_rounds_cal, funding_rounds_cal_2, funding_rounds_cal_3))
-```
 
-```{r}
 x_zoo = as.xts(funding_rounds_cal_comb[,"Money.Raised"], order.by=as.Date(funding_rounds_cal_comb$Announced.Date))
 # covert to xts form to add time stamp
 
@@ -41,7 +47,105 @@ weekly_funding_agg = apply.weekly(x_zoo,sum,na.rm=TRUE)
 weekly_dealings_agg = apply.weekly(x_zoo,nrow)
 # group by weeks and get the aggregate sum of money & number of dealings
 
-cal_funding_agg = as.data.frame(cbind(weekly_funding_agg, weekly_dealings_agg))
-cal_funding_agg
+funding_rounds_cal_agg = as.data.frame(cbind(weekly_funding_agg, weekly_dealings_agg))
+funding_rounds_cal_agg$Treatment = 1
+funding_rounds_cal_agg$week = 1:nrow(funding_rounds_cal_agg)
+funding_rounds_cal_agg =funding_rounds_cal_agg[,c("week","weekly_funding_agg","weekly_dealings_agg","Treatment")]
+colnames(funding_rounds_cal_agg) = c("week", "Raised_total", "occurance","Treatment")
+funding_rounds_cal_agg[c(1:53),"post"] = 0
+funding_rounds_cal_agg[c(54:nrow(funding_rounds_cal_agg)),"post"] = 1
+funding_rounds_cal_agg
 # combine dataframe
 ```
+```{r}
+funding_rounds_mass = read.csv("/cloud/project/funding-rounds-massachusetts.csv")
+attach(funding_rounds_mass)
+
+x_zoo = as.xts(funding_rounds_mass[,"Money.Raised"], order.by=as.Date(funding_rounds_mass$Announced.Date))
+# covert to xts form to add time stamp
+
+weekly_funding_agg = apply.weekly(x_zoo,sum,na.rm=TRUE)   
+weekly_dealings_agg = apply.weekly(x_zoo,nrow)
+# group by weeks and get the aggregate sum of money & number of dealings
+
+funding_rounds_mass_agg = as.data.frame(cbind(weekly_funding_agg, weekly_dealings_agg))
+funding_rounds_mass_agg$Treatment = 0
+funding_rounds_mass_agg$week = 1:nrow(funding_rounds_mass_agg)
+funding_rounds_mass_agg =funding_rounds_mass_agg[,c("week","weekly_funding_agg","weekly_dealings_agg","Treatment")]
+colnames(funding_rounds_mass_agg) = c("week", "Raised_total", "occurance","Treatment")
+funding_rounds_mass_agg[c(1:48),"post"] = 0
+funding_rounds_mass_agg[c(48:nrow(funding_rounds_mass_agg)),"post"] = 1
+funding_rounds_mass_agg
+# combine dataframe
+```
+```{r}
+
+```
+
+
+# Data Cleaning (Massachusetts)
+```{r}
+funding_rounds_mass = read.csv("/cloud/project/funding-rounds-massachusetts.csv")
+attach(funding_rounds_mass)
+view(funding_rounds_mass)
+# remove all NAs
+funding_rounds_mass = funding_rounds_mass[complete.cases(funding_rounds_mass), ]
+
+# Aggregate based on week 
+funding_rounds_mass_agg = funding_rounds_mass %>% group_by(week = week(Announced.Date)) %>% summarise(Raised_total = as.double(sum(Money.Raised)),
+                                                                 occurance = as.double(sum(Money.Raised.Currency == 'USD')),
+                                                                 value = as.double(Raised_total * occurance))
+funding_rounds_mass_agg$Treatment=0
+funding_rounds_mass_agg = as.data.frame(funding_rounds_mass_agg)
+funding_rounds_mass_agg[c(1:53),"post"] = 0
+funding_rounds_mass_agg[c(54:nrow(funding_rounds_mass_agg)),"post"] = 1
+funding_rounds_mass_agg
+#output = as.data.frame(a)
+#rbind(funding_rounds_mass_agg[,-4], funding_rounds_cal_agg, by=c("week"), all=T)
+#merge(df1, df2, by="year", all = T)
+# export df to csv
+#write.csv(output,"/Users/cuixinran/Desktop/474 project/cleaned_data.csv", row.names = TRUE)
+```
+
+```{r}
+colnames(funding_rounds_agg_comb)
+```
+
+```{r}
+funding_rounds_agg_comb = rbind(funding_rounds_cal_agg[1:69,], funding_rounds_mass_agg)
+funding_rounds_agg_comb
+```
+```{r}
+attach(funding_rounds_agg_comb)
+funding_rounds_agg_comb$did = post*Treatment
+didreg = lm(occurance ~ Treatment + week + did)
+summary(didreg)
+```
+
+```{r}
+didreg = lm(Raised_total ~ Treatment + week + did, data=funding_rounds_agg_comb)
+summary(didreg)
+```
+
+```{r}
+cal_fundings_trend = ggplot(data = funding_rounds_cal_agg[1:69,]) +
+  geom_freqpoly(mapping = aes(x = week, y = occurance), stat = "identity", color="blue")
+cal_fundings_trend
+```
+```{r}
+mass_fundings_trend = ggplot(data = funding_rounds_mass_agg) +
+  geom_freqpoly(mapping = aes(x = week, y = occurance), stat = "identity", color="red")
+mass_fundings_trend
+```
+
+
+```{r}
+ggplot() +
+  geom_line(data = funding_rounds_agg_comb[1:69,], mapping = aes(x = week, y = occurance), stat = "identity", color="blue")+ geom_line(data = funding_rounds_agg_comb[70:138,],mapping = aes(x = week, y = occurance), stat = "identity", color="red")
+```
+
+```{r}
+ggplot() +
+  geom_line(data = funding_rounds_agg_comb[1:69,], mapping = aes(x = week, y = Raised_total), stat = "identity", color="blue")+ geom_line(data = funding_rounds_agg_comb[70:138,],mapping = aes(x = week, y = Raised_total), stat = "identity", color="red")
+```
+
