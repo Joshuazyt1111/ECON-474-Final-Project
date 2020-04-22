@@ -1,12 +1,23 @@
 ---
-title: "ECON 474 Final Project"
-output: html_document
+title: "STAT 385 HW7"
+output:
+  html_document: default
+  pdf_document: default
 ---
+
+# Introduction
+The project seeks to explore the enactment California Consumer Privacy Act (CCPA)'s short term effect on venture investment activities. The data set contains informations of all venture investment activities from june 28th, 2017 to June 28th, 2019 in california and massachusetts. The data come from three groups of industries: finance, health care and information technology.
+
+# Questions
+- How are funding types distributed among industry groups?
+- How are funding status distributed among industry groups?
+- How are money raised distributed among industry groups?
+- How is the trend of trading events progress overtime?
+- How is the trend of money raised progress overtime?
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
 
 ```{r}
 #install.packages("dplyr")
@@ -15,30 +26,26 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages("zoo")
 #install.packages("tidyverse")
 #install.packages("lubridate")
+#install.packages("gridExtra")
 library(tidyverse)
 library(lubridate)
 library(dplyr)
 library(ggplot2)
 library(xts)
 library(zoo)
+library(gridExtra)
 ```
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+# Datacleaning 
 
+## (California)
 ```{r}
-view(funding_rounds_cal_3)
-```
+funding_rounds_cal = read.csv("/cloud/project/funding-rounds-4-20-2020.csv")
+funding_rounds_cal_2 = read.csv("/cloud/project/funding-rounds-4-20-2020 (1).csv")
+funding_rounds_cal_3 = read.csv("/cloud/project/funding-rounds-4-20-2020 (2).csv")
+funding_rounds_cal_4= read.csv("/cloud/project/funding-rounds-4-20-2020 (3).csv")
 
-
-# Datacleaning (California)
-```{r}
-funding_rounds_cal = read.csv("/cloud/project/funding-rounds-california.csv")
-funding_rounds_cal_2 = read.csv("/cloud/project/funding-rounds-california-2.csv")
-funding_rounds_cal_3 = read.csv("/cloud/project/funding-rounds-california-3.csv")
-
-funding_rounds_cal_comb = unique(rbind(funding_rounds_cal, funding_rounds_cal_2, funding_rounds_cal_3))
+funding_rounds_cal_comb = unique(rbind(funding_rounds_cal, funding_rounds_cal_2, funding_rounds_cal_3, funding_rounds_cal_4))
 
 x_zoo = as.xts(funding_rounds_cal_comb[,"Money.Raised"], order.by=as.Date(funding_rounds_cal_comb$Announced.Date))
 # covert to xts form to add time stamp
@@ -54,14 +61,40 @@ funding_rounds_cal_agg =funding_rounds_cal_agg[,c("week","weekly_funding_agg","w
 colnames(funding_rounds_cal_agg) = c("week", "Raised_total", "occurance","Treatment")
 funding_rounds_cal_agg[c(1:53),"post"] = 0
 funding_rounds_cal_agg[c(54:nrow(funding_rounds_cal_agg)),"post"] = 1
-funding_rounds_cal_agg
 # combine dataframe
 ```
-```{r}
-funding_rounds_mass = read.csv("/cloud/project/funding-rounds-massachusetts.csv")
-attach(funding_rounds_mass)
 
-x_zoo = as.xts(funding_rounds_mass[,"Money.Raised"], order.by=as.Date(funding_rounds_mass$Announced.Date))
+```{r}
+Fin_rows = grep("Finance|FinTech|FinacialService", funding_rounds_cal_comb$Organization.Industries)
+funding_rounds_cal_comb[Fin_rows, "Industries_Level"]="Finance"
+Health_rows = grep("Health Care", funding_rounds_cal_comb$Organization.Industries)
+funding_rounds_cal_comb[Health_rows, "Industries_Level"]="Health Care"
+Info_rows = grep("Information Technology", funding_rounds_cal_comb$Organization.Industries)
+funding_rounds_cal_comb[Info_rows, "Industries_Level"]="Info Tech"
+```
+
+```{r}
+quant = as.numeric(quantile(funding_rounds_cal_comb$Money.Raised, na.rm = T))
+
+q1 = which(funding_rounds_cal_comb$Money.Raised>quant[1] & funding_rounds_cal_comb$Money.Raised<=quant[2])
+q2 = which(funding_rounds_cal_comb$Money.Raised>quant[2] & funding_rounds_cal_comb$Money.Raised<=quant[3])
+q3 = which(funding_rounds_cal_comb$Money.Raised>quant[3] & funding_rounds_cal_comb$Money.Raised<=quant[4])
+q4 = which(funding_rounds_cal_comb$Money.Raised>quant[4] & funding_rounds_cal_comb$Money.Raised<=quant[5])
+funding_rounds_cal_comb[q1,"Money.Raised.Levels"]="$1000-$1M"
+funding_rounds_cal_comb[q2,"Money.Raised.Levels"]="$1M-$5M"
+funding_rounds_cal_comb[q3,"Money.Raised.Levels"]="$5M-$17.5M"
+funding_rounds_cal_comb[q4,"Money.Raised.Levels"]="$17.5M-$2B"
+```
+
+## (Massachusetts)
+```{r}
+funding_rounds_mass = read.csv("/cloud/project/funding-rounds-4-20-2020 (4).csv")
+#funding_rounds_mass_2 = read.csv("/cloud/project/funding-rounds-massachusetts-2.csv")
+
+funding_rounds_mass_comb = unique(funding_rounds_mass)
+attach(funding_rounds_mass_comb)
+
+x_zoo = as.xts(funding_rounds_mass_comb[,"Money.Raised"], order.by=as.Date(funding_rounds_mass_comb$Announced.Date))
 # covert to xts form to add time stamp
 
 weekly_funding_agg = apply.weekly(x_zoo,sum,na.rm=TRUE)   
@@ -73,79 +106,131 @@ funding_rounds_mass_agg$Treatment = 0
 funding_rounds_mass_agg$week = 1:nrow(funding_rounds_mass_agg)
 funding_rounds_mass_agg =funding_rounds_mass_agg[,c("week","weekly_funding_agg","weekly_dealings_agg","Treatment")]
 colnames(funding_rounds_mass_agg) = c("week", "Raised_total", "occurance","Treatment")
-funding_rounds_mass_agg[c(1:48),"post"] = 0
-funding_rounds_mass_agg[c(48:nrow(funding_rounds_mass_agg)),"post"] = 1
-funding_rounds_mass_agg
+funding_rounds_mass_agg[c(1:53),"post"] = 0
+funding_rounds_mass_agg[c(53:nrow(funding_rounds_mass_agg)),"post"] = 1
 # combine dataframe
 ```
-```{r}
 
+```{r}
+funding_rounds_agg_comb = rbind(funding_rounds_cal_agg, funding_rounds_mass_agg)
 ```
 
+# Graphs
 
-# Data Cleaning (Massachusetts)
+
+## Q1 Distribution of Funding Type from Different Industries
 ```{r}
-funding_rounds_mass = read.csv("/cloud/project/funding-rounds-massachusetts.csv")
-attach(funding_rounds_mass)
-view(funding_rounds_mass)
-# remove all NAs
-funding_rounds_mass = funding_rounds_mass[complete.cases(funding_rounds_mass), ]
+q1.1 <- ggplot(data = funding_rounds_cal_comb) + 
+  geom_bar(mapping = aes(x = funding_rounds_cal_comb$Industries_Level, fill = funding_rounds_cal_comb$Funding.Type), position = "identity") +
+  labs(title="Distribution of Funding Type from Different Industries", x="Industries", colour="Funding Type")
+q1.1
+```
+The normal sequence of Series A-G occur the most among industries.
 
-# Aggregate based on week 
-funding_rounds_mass_agg = funding_rounds_mass %>% group_by(week = week(Announced.Date)) %>% summarise(Raised_total = as.double(sum(Money.Raised)),
-                                                                 occurance = as.double(sum(Money.Raised.Currency == 'USD')),
-                                                                 value = as.double(Raised_total * occurance))
-funding_rounds_mass_agg$Treatment=0
-funding_rounds_mass_agg = as.data.frame(funding_rounds_mass_agg)
-funding_rounds_mass_agg[c(1:53),"post"] = 0
-funding_rounds_mass_agg[c(54:nrow(funding_rounds_mass_agg)),"post"] = 1
-funding_rounds_mass_agg
-#output = as.data.frame(a)
-#rbind(funding_rounds_mass_agg[,-4], funding_rounds_cal_agg, by=c("week"), all=T)
-#merge(df1, df2, by="year", all = T)
-# export df to csv
-#write.csv(output,"/Users/cuixinran/Desktop/474 project/cleaned_data.csv", row.names = TRUE)
+## Q2 Distribution of Funding Status from Different Industries
+```{r}
+q2.1 <- ggplot(data = funding_rounds_cal_comb) + 
+  geom_bar(mapping = aes(x = funding_rounds_cal_comb$Industries_Level, fill = funding_rounds_cal_comb$Funding.Status), position = "dodge")+
+  labs(title="Distribution of Funding Status from Different Industries", x="Industries", colour="Funding Type")
+q2.1
+```
+Seed stage venture activities occurred the most among industries while private equity, M&A and IPO occur least among three industries. 
+
+## Q3 Distribution of Raised Money from Different Industries
+```{r}
+q3.1 <- ggplot(data = funding_rounds_cal_comb) + 
+  geom_bar(mapping = aes(x = funding_rounds_cal_comb$Industries_Level, fill = funding_rounds_cal_comb$Money.Raised.Levels), position = "dodge") +
+  labs(title="Distribution of Raised Money from Different Industries", x="Industries", colour="Funding Type")
+
+q3.2 = ggplot(funding_rounds_cal_comb, aes(x=Money.Raised.Levels ,group=Industries_Level)) + 
+    geom_bar(aes(y = ..prop.., fill = factor(..x..)), stat="count") +
+    geom_text(aes( label = scales::percent(..prop..),
+                   y= ..prop.. ), stat= "count", vjust = -.5) +
+    labs(y = "Percent", fill="Money.Raised.Levels") +
+    facet_grid(~Industries_Level) +
+    scale_y_continuous(labels = scales::percent)
+
+grid.arrange(q3.1, q3.2, nrow = 2)
+```
+In finance industry, venture activities among $17.5M-$2B occurs the most while other range remain relatively the same. In health care industry, $5M-$17.5M occurs the most. In info tech industry, the $1000-$1M range occurs the most.
+
+```{r}
+q3.3 <- ggplot(data = funding_rounds_cal_comb) + 
+  geom_bar(mapping = aes(x = funding_rounds_cal_comb$Industries_Level, fill = funding_rounds_cal_comb$Money.Raised.Levels), position = "dodge") +
+  labs(title="Distribution of Raised Money from Different Industries", x="Industries", colour="Funding Type")+
+  coord_polar()
+q3.3
 ```
 
+## Q4 DIstribution of Money Raised Among Industries
 ```{r}
-colnames(funding_rounds_agg_comb)
+q4 = ggplot(data = funding_rounds_cal_comb) +
+  geom_boxplot(mapping = aes(x = Money.Raised, y = funding_rounds_cal_comb$Industries_Level), color="Blue") +
+  labs(title = "DIstribution of Money Raised Among Industries", x="Money Raised", y="Industires")
+q4
 ```
 
-```{r}
-funding_rounds_agg_comb = rbind(funding_rounds_cal_agg[1:69,], funding_rounds_mass_agg)
-funding_rounds_agg_comb
-```
-```{r}
-attach(funding_rounds_agg_comb)
-funding_rounds_agg_comb$did = post*Treatment
-didreg = lm(occurance ~ Treatment + week + did)
-summary(didreg)
-```
+The distribution of money raised is mostly concentrated on lower end of the scale.
 
+## Q5 Weekly Investment Events Over Time (Cal)
 ```{r}
-didreg = lm(Raised_total ~ Treatment + week + did, data=funding_rounds_agg_comb)
-summary(didreg)
-```
-
-```{r}
-cal_fundings_trend = ggplot(data = funding_rounds_cal_agg[1:69,]) +
-  geom_freqpoly(mapping = aes(x = week, y = occurance), stat = "identity", color="blue")
+cal_fundings_trend = ggplot(data = funding_rounds_cal_agg) +
+  geom_freqpoly(mapping = aes(x = week, y = occurance), stat = "identity", color="blue") +
+  labs(title="Weekly Investment Events Over Time (Cal)", x="Weeks")
 cal_fundings_trend
 ```
+The trend of investment events changed from upward sloping to relatively downward sloping after the enactment of CCPA (the 53rd week). There's an obvious effect on venture investment activities of the policy.
+
+## Weekly Investment Events Overtime (Mass)
 ```{r}
 mass_fundings_trend = ggplot(data = funding_rounds_mass_agg) +
-  geom_freqpoly(mapping = aes(x = week, y = occurance), stat = "identity", color="red")
+  geom_freqpoly(mapping = aes(x = week, y = occurance), stat = "identity", color="red") +
+  labs(title="Weekly Investment Events Over Time (Mass)", x="Weeks")
+mass_fundings_trend
+```
+The venture investment activities of massachusettes remain relatively unchanged as it is out of the sovereighty of CCPA. 
+
+```{r}
+ggplot() +
+  geom_line(data = funding_rounds_agg_comb[1:105,], mapping = aes(x = week, y = occurance), stat = "identity", color="blue")+ geom_line(data = funding_rounds_agg_comb[105:210,],mapping = aes(x = week, y = occurance), stat = "identity", color="red")+
+  labs(title="Weekly Investment Events Over Time", x="Weeks")
+```
+
+## Weekly Aggregated Money Raised (Cal)
+```{r}
+cal_fundings_trend = ggplot(data = funding_rounds_cal_agg) +
+  geom_freqpoly(mapping = aes(x = week, y = Raised_total), stat = "identity", color="blue") +
+  labs(title="Weekly Aggregated Money Raised (Mass)", y="Money Raised (Weekly)", x="Weeks")
+cal_fundings_trend
+```
+There's no obvious change in the trend of money raised for california. This is probably due to the fact that finance and health care industries, which take over half of the overall venture investment activities are less affected due to existing regulations.
+
+## Weekly Aggregated Money Raised (Mass)
+```{r}
+mass_fundings_trend = ggplot(data = funding_rounds_mass_agg) +
+  geom_freqpoly(mapping = aes(x = week, y = Raised_total), stat = "identity", color="red") +
+  labs(title="Weekly Aggregated Money Raised (Mass)", y="Money Raised (Weekly)", x="Weeks")
 mass_fundings_trend
 ```
 
-
 ```{r}
 ggplot() +
-  geom_line(data = funding_rounds_agg_comb[1:69,], mapping = aes(x = week, y = occurance), stat = "identity", color="blue")+ geom_line(data = funding_rounds_agg_comb[70:138,],mapping = aes(x = week, y = occurance), stat = "identity", color="red")
+  geom_line(data = funding_rounds_agg_comb[1:105,], mapping = aes(x = week, y = Raised_total), stat = "identity", color="blue")+ geom_line(data = funding_rounds_agg_comb[105:210,],mapping = aes(x = week, y = Raised_total), stat = "identity", color="red")
+```
+# Regression
+```{r}
+attach(funding_rounds_agg_comb)
+funding_rounds_agg_comb$did = post*Treatment
 ```
 
 ```{r}
-ggplot() +
-  geom_line(data = funding_rounds_agg_comb[1:69,], mapping = aes(x = week, y = Raised_total), stat = "identity", color="blue")+ geom_line(data = funding_rounds_agg_comb[70:138,],mapping = aes(x = week, y = Raised_total), stat = "identity", color="red")
+#didreg = lm(occurance ~ Treatment + week + did)
+#summary(didreg)
 ```
+
+```{r}
+didreg = lm(Raised_total ~ Treatment + week + did , data=funding_rounds_agg_comb)
+summary(didreg)
+```
+
 
