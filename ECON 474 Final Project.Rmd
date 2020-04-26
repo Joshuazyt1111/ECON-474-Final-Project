@@ -1,5 +1,5 @@
 ---
-title: "STAT 385 HW7"
+title: "ECON 474 Final Project"
 output:
   html_document: default
   pdf_document: default
@@ -46,22 +46,6 @@ funding_rounds_cal_3 = read.csv("/cloud/project/funding-rounds-4-20-2020 (2).csv
 funding_rounds_cal_4= read.csv("/cloud/project/funding-rounds-4-20-2020 (3).csv")
 
 funding_rounds_cal_comb = unique(rbind(funding_rounds_cal, funding_rounds_cal_2, funding_rounds_cal_3, funding_rounds_cal_4))
-
-x_zoo = as.xts(funding_rounds_cal_comb[,"Money.Raised"], order.by=as.Date(funding_rounds_cal_comb$Announced.Date))
-# covert to xts form to add time stamp
-
-weekly_funding_agg = apply.weekly(x_zoo,sum,na.rm=TRUE)   
-weekly_dealings_agg = apply.weekly(x_zoo,nrow)
-# group by weeks and get the aggregate sum of money & number of dealings
-
-funding_rounds_cal_agg = as.data.frame(cbind(weekly_funding_agg, weekly_dealings_agg))
-funding_rounds_cal_agg$Treatment = 1
-funding_rounds_cal_agg$week = 1:nrow(funding_rounds_cal_agg)
-funding_rounds_cal_agg =funding_rounds_cal_agg[,c("week","weekly_funding_agg","weekly_dealings_agg","Treatment")]
-colnames(funding_rounds_cal_agg) = c("week", "Raised_total", "occurance","Treatment")
-funding_rounds_cal_agg[c(1:53),"post"] = 0
-funding_rounds_cal_agg[c(54:nrow(funding_rounds_cal_agg)),"post"] = 1
-# combine dataframe
 ```
 
 ```{r}
@@ -85,6 +69,27 @@ funding_rounds_cal_comb[q2,"Money.Raised.Levels"]="$1M-$5M"
 funding_rounds_cal_comb[q3,"Money.Raised.Levels"]="$5M-$17.5M"
 funding_rounds_cal_comb[q4,"Money.Raised.Levels"]="$17.5M-$2B"
 ```
+
+
+```{r}
+x_zoo = as.xts(funding_rounds_cal_comb[,"Money.Raised"], order.by=as.Date(funding_rounds_cal_comb$Announced.Date))
+# convert to xts form to add time stamp
+
+weekly_funding_agg = apply.weekly(x_zoo,sum,na.rm=TRUE)   
+weekly_dealings_agg = apply.weekly(x_zoo,nrow)
+# group by weeks and get the aggregate sum of money & number of dealings
+
+funding_rounds_cal_agg = as.data.frame(cbind(weekly_funding_agg, weekly_dealings_agg))
+funding_rounds_cal_agg$Treatment = 1
+funding_rounds_cal_agg$week = 1:nrow(funding_rounds_cal_agg)
+funding_rounds_cal_agg =funding_rounds_cal_agg[,c("week","weekly_funding_agg","weekly_dealings_agg","Treatment")]
+colnames(funding_rounds_cal_agg) = c("week", "Raised_total", "occurance","Treatment")
+funding_rounds_cal_agg[c(1:53),"post"] = 0
+funding_rounds_cal_agg[c(54:nrow(funding_rounds_cal_agg)),"post"] = 1
+# combine dataframe
+```
+
+
 
 ## (Massachusetts)
 ```{r}
@@ -224,13 +229,63 @@ funding_rounds_agg_comb$did = post*Treatment
 ```
 
 ```{r}
-#didreg = lm(occurance ~ Treatment + week + did)
-#summary(didreg)
-```
-
-```{r}
-didreg = lm(Raised_total ~ Treatment + week + did , data=funding_rounds_agg_comb)
+didreg = lm(occurance ~ Treatment + post + did, data=funding_rounds_agg_comb)
 summary(didreg)
 ```
 
+```{r}
+colnames(funding_rounds_agg_comb)
+```
+
+```{r}
+didreg = lm(Raised_total ~ Treatment + post + did , data=funding_rounds_agg_comb)
+summary(didreg)
+```
+
+## Industries Split
+```{r}
+colnames(funding_rounds_cal_comb)
+```
+
+```{r}
+
+funding_rounds_cal_comb[n,]
+```
+
+
+```{r}
+#funding_rounds_cal_comb = unique(rbind(funding_rounds_cal, funding_rounds_cal_2, funding_rounds_cal_3, funding_rounds_cal_4))
+
+n = which(funding_rounds_cal_comb$Industries_Level=="Finance")
+Cal_Info = funding_rounds_cal_comb[n, ""]
+x_zoo = as.xts(funding_rounds_cal_comb[n, c("","Money.Raised")], order.by=as.Date(funding_rounds_cal_comb$Announced.Date, na.rm=T), na.rm=T)
+
+# convert to xts form to add time stamp
+x_zoo
+weekly_funding_agg_info = apply.weekly(x_zoo$Money.Raised,sum,na.rm=TRUE)   
+weekly_dealings_agg_info = apply.weekly(x_zoo$Money.Raised,nrow)
+# group by weeks and get the aggregate sum of money & number of dealings
+
+funding_rounds_cal_agg_info = as.data.frame(cbind(weekly_funding_agg, weekly_dealings_agg))
+funding_rounds_cal_agg_info$Treatment = 1
+funding_rounds_cal_agg_info$week = 1:nrow(funding_rounds_cal_agg)
+funding_rounds_cal_agg_info =funding_rounds_cal_agg_info[,c("week","weekly_funding_agg","weekly_dealings_agg","Treatment")]
+colnames(funding_rounds_cal_agg_info) = c("week", "Raised_total", "occurance","Treatment")
+funding_rounds_cal_agg_info[c(1:53),"post"] = 0
+funding_rounds_cal_agg_info[c(54:nrow(funding_rounds_cal_agg)),"post"] = 1
+# combine dataframe
+```
+```{r}
+View(x_zoo)
+```
+
+```{r}
+View(x_zoo)
+```
+
+```{r}
+didreg = lm(Raised_total ~ Treatment + post + did , data=funding_rounds_agg_comb["in"])
+summary(didreg)
+```
+```
 
